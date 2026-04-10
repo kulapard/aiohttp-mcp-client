@@ -1,3 +1,45 @@
 """MCP client built on top of aiohttp."""
 
-__all__: list[str] = []
+from ._types import (
+    AudioContent,
+    ContentBlock,
+    GetPromptResult,
+    ImageContent,
+    MCPError,
+    MCPServerError,
+    MCPTransportError,
+    Prompt,
+    PromptArgument,
+    PromptMessage,
+    Resource,
+    ResourceContents,
+    ResourceTemplate,
+    ServerCapabilities,
+    ServerInfo,
+    TextContent,
+    Tool,
+    ToolResult,
+)
+from .client import MCPClient
+
+__all__ = [
+    "AudioContent",
+    "ContentBlock",
+    "GetPromptResult",
+    "ImageContent",
+    "MCPClient",
+    "MCPError",
+    "MCPServerError",
+    "MCPTransportError",
+    "Prompt",
+    "PromptArgument",
+    "PromptMessage",
+    "Resource",
+    "ResourceContents",
+    "ResourceTemplate",
+    "ServerCapabilities",
+    "ServerInfo",
+    "TextContent",
+    "Tool",
+    "ToolResult",
+]

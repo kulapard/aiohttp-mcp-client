@@ -5,9 +5,15 @@
 [![Python](https://img.shields.io/pypi/pyversions/aiohttp-mcp-client.svg)](https://pypi.org/project/aiohttp-mcp-client/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-MCP client built on top of [aiohttp](https://github.com/aio-libs/aiohttp).
+MCP ([Model Context Protocol](https://modelcontextprotocol.io/)) client built on top of [aiohttp](https://github.com/aio-libs/aiohttp). Supports the [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-11-25/basic/transports#streamable-http) transport.
 
-> **Note:** This package is under active development.
+## Features
+
+- Async context manager with automatic initialize/terminate lifecycle
+- Supports both JSON and SSE response modes
+- Accepts an external `aiohttp.ClientSession` for integration into existing apps
+- Typed result objects (frozen dataclasses)
+- Only 1 runtime dependency: `aiohttp`
 
 ## Installation
 
@@ -21,11 +27,80 @@ Or with [uv](https://docs.astral.sh/uv/):
 uv add aiohttp-mcp-client
 ```
 
+## Quick Start
+
+```python
+import asyncio
+from aiohttp_mcp_client import MCPClient
+
+async def main():
+    async with MCPClient("http://localhost:8080/mcp") as client:
+        # List available tools
+        tools = await client.list_tools()
+        for tool in tools:
+            print(f"  {tool.name}: {tool.description}")
+
+        # Call a tool
+        result = await client.call_tool("my_tool", {"arg": "value"})
+        for block in result.content:
+            print(block.text)
+
+asyncio.run(main())
+```
+
+### Using an existing aiohttp session
+
+```python
+import aiohttp
+from aiohttp_mcp_client import MCPClient
+
+async def main():
+    async with aiohttp.ClientSession() as session:
+        async with MCPClient("http://localhost:8080/mcp", session=session) as client:
+            tools = await client.list_tools()
+```
+
+## API
+
+### `MCPClient(url, *, session=None, client_info=None)`
+
+- `url` — MCP server endpoint URL
+- `session` — Optional `aiohttp.ClientSession` (one is created if not provided)
+- `client_info` — Optional `{"name": "...", "version": "..."}` dict
+
+### Methods
+
+| Method | Description |
+|--------|-------------|
+| `list_tools()` | List available tools |
+| `call_tool(name, arguments)` | Call a tool |
+| `list_resources()` | List available resources |
+| `read_resource(uri)` | Read a resource by URI |
+| `list_resource_templates()` | List resource templates |
+| `list_prompts()` | List available prompts |
+| `get_prompt(name, arguments)` | Get a prompt by name |
+| `ping()` | Send a ping |
+
+## Future Plans
+
+- Notification callbacks (progress, log messages) during tool calls
+- GET SSE stream for server-initiated notifications
+- Pagination support for list methods
+- SSE resumability with `Last-Event-ID`
+
 ## Requirements
 
 - Python 3.11+
 - aiohttp >= 3.9.0
-- pydantic >= 2.0.0
+
+## Development
+
+```bash
+uv venv && source .venv/bin/activate
+uv sync --all-extras
+make test
+make lint
+```
 
 ## License
 
