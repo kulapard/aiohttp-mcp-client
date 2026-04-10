@@ -1,0 +1,11 @@
+feature:
+  - feature/*
+  - feat/*
+fix:
+  - fix/*
+  - bug/*
+  - bugfix/*
+chore:
+  - chore/*
+  - tech/*
+  - refactor/*
