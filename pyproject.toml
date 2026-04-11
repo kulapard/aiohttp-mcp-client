@@ -72,6 +72,7 @@ only-packages = true
 
 [tool.mypy]
 strict = true
+exclude = ["examples/"]
 
 [[tool.mypy.overrides]]
 module = "tests.*"
@@ -82,7 +83,7 @@ module = "aiohttp_mcp.*"
 ignore_missing_imports = true
 
 [tool.ty.src]
-exclude = ["tests/"]
+exclude = ["tests/", "examples/"]
 
 [tool.ruff]
 line-length = 120

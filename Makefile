@@ -81,6 +81,13 @@ pre-commit-update:
 # Create a new release
 release: clean build publish
 
+# Example runners
+run-server:
+	uv run examples/server.py
+
+run-client:
+	uv run examples/client.py
+
 # Show help
 help:
 	@echo "Available commands:"
@@ -93,3 +100,7 @@ help:
 	@echo "  make test       - Run tests"
 	@echo "  make lint       - Run linting"
 	@echo "  make release    - Create a new release (clean, build, publish)"
+	@echo ""
+	@echo "Example runners:"
+	@echo "  make run-server - Run demo MCP server on http://localhost:8080/mcp"
+	@echo "  make run-client - Run demo MCP client"
