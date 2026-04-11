@@ -110,9 +110,7 @@ All methods except `ping()` accept optional `on_log` and `on_progress` keyword a
 
 ## Future Plans
 
-- GET SSE stream for server-initiated notifications
 - Automatic pagination helpers (fetch all pages)
-- SSE resumability with `Last-Event-ID`
 
 ## Requirements
 

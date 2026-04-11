@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Accepts optional external `aiohttp.ClientSession`.
 - Notification callbacks (`on_log`, `on_progress`) for log messages and progress updates during tool calls. Configurable at client level and per-call.
 - Pagination support via `cursor` parameter on all list methods. Returns `PaginatedResult` (a list subclass with `next_cursor` attribute).
+- GET SSE stream for server-initiated notifications in stateful mode. Background task auto-starts when a session ID is present, with auto-reconnect.
+- SSE resumability via `Last-Event-ID` header tracking for both POST and GET streams.
 
 ### Changed
 

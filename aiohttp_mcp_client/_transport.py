@@ -1,14 +1,16 @@
 """Low-level HTTP transport for MCP Streamable HTTP protocol.
 
-Handles POST with JSON/SSE response parsing, session header management,
-and session termination via DELETE.
+Handles POST with JSON/SSE response parsing, GET SSE streaming,
+session header management, and session termination via DELETE.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable
+from dataclasses import dataclass
 from typing import Any
 
 import aiohttp
@@ -16,6 +18,7 @@ import aiohttp
 from ._types import (
     CONTENT_TYPE_JSON,
     CONTENT_TYPE_SSE,
+    LAST_EVENT_ID_HEADER,
     LATEST_PROTOCOL_VERSION,
     MCP_PROTOCOL_VERSION_HEADER,
     MCP_SESSION_ID_HEADER,
@@ -24,6 +27,18 @@ from ._types import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Reconnection defaults for GET SSE stream
+DEFAULT_RECONNECTION_DELAY: float = 1.0  # seconds
+MAX_RECONNECTION_ATTEMPTS: int = 2
+
+
+@dataclass
+class SSEEvent:
+    """A parsed SSE event with data and optional event ID."""
+
+    data: dict[str, Any]
+    event_id: str | None = None
 
 
 def _parse_sse_data(data_lines: list[str]) -> dict[str, Any]:
@@ -36,13 +51,15 @@ def _parse_sse_data(data_lines: list[str]) -> dict[str, Any]:
     return result
 
 
-async def _iter_sse_events(response: aiohttp.ClientResponse) -> AsyncGenerator[dict[str, Any], None]:
-    """Parse SSE stream from an aiohttp response, yielding JSON-parsed messages.
+async def _iter_sse_events(response: aiohttp.ClientResponse) -> AsyncGenerator[SSEEvent, None]:
+    """Parse SSE stream from an aiohttp response, yielding parsed events.
 
     Only yields events with ``event: message`` and non-empty ``data:``.
+    Tracks ``id:`` fields for resumability.
     Raises MCPTransportError on JSON parse failure.
     """
     event_type: str | None = None
+    event_id: str | None = None
     data_lines: list[str] = []
 
     async for raw_line in response.content:
@@ -52,16 +69,19 @@ async def _iter_sse_events(response: aiohttp.ClientResponse) -> AsyncGenerator[d
             event_type = line[6:].strip()
         elif line.startswith("data:"):
             data_lines.append(line[5:].lstrip())
+        elif line.startswith("id:"):
+            event_id = line[3:].strip()
         elif line == "":
             # Blank line = end of event
             if event_type == "message" and data_lines:
-                yield _parse_sse_data(data_lines)
+                yield SSEEvent(data=_parse_sse_data(data_lines), event_id=event_id)
             event_type = None
+            event_id = None
             data_lines = []
 
     # Flush any remaining event (stream closed without trailing blank line)
     if event_type == "message" and data_lines:
-        yield _parse_sse_data(data_lines)
+        yield SSEEvent(data=_parse_sse_data(data_lines), event_id=event_id)
 
 
 def _extract_result(msg: dict[str, Any]) -> dict[str, Any]:
@@ -135,7 +155,8 @@ async def send_request(
 
         if content_type.startswith(CONTENT_TYPE_SSE):
             # SSE stream: route notifications, return final response
-            async for msg in _iter_sse_events(response):
+            async for event in _iter_sse_events(response):
+                msg = event.data
                 if "result" in msg or "error" in msg:
                     return _extract_result(msg), new_session_id
                 # Notification — route to callback or discard
@@ -176,6 +197,89 @@ async def send_notification(
             text = await response.text()
             raise MCPTransportError(f"HTTP {response.status}: {text}")
         # 202 Accepted expected — no body to read
+
+
+async def _consume_sse_stream(
+    http_session: aiohttp.ClientSession,
+    url: str,
+    headers: dict[str, str],
+    on_notification: Callable[[dict[str, Any]], Awaitable[None]] | None,
+) -> str | None:
+    """Open a single GET SSE connection, consume events, return the last event ID.
+
+    Returns:
+        The last event ID seen, or None.
+
+    Raises:
+        MCPTransportError: On HTTP errors that should not be retried.
+    """
+    async with http_session.get(url, headers=headers) as response:
+        if response.status == 409:
+            raise MCPTransportError("GET SSE stream conflict (409) — another stream already open")
+        if response.status >= 400:
+            raise MCPTransportError(f"GET SSE stream failed: HTTP {response.status}")
+
+        logger.debug("GET SSE stream connected")
+        last_event_id: str | None = None
+
+        async for event in _iter_sse_events(response):
+            if event.event_id:
+                last_event_id = event.event_id
+            msg = event.data
+            if on_notification is not None:
+                await on_notification(msg)
+            else:
+                logger.debug("GET SSE notification (discarded): %s", msg.get("method", "unknown"))
+
+        return last_event_id
+
+
+async def listen_sse(
+    http_session: aiohttp.ClientSession,
+    url: str,
+    session_id: str,
+    protocol_version: str = LATEST_PROTOCOL_VERSION,
+    on_notification: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+) -> None:
+    """Open a persistent GET SSE stream for server-initiated notifications.
+
+    Runs until the connection is closed or cancelled. Automatically reconnects
+    on disconnection up to ``MAX_RECONNECTION_ATTEMPTS`` times.
+    """
+    last_event_id: str | None = None
+    attempt = 0
+
+    while attempt < MAX_RECONNECTION_ATTEMPTS:
+        headers: dict[str, str] = {
+            "Accept": CONTENT_TYPE_SSE,
+            MCP_SESSION_ID_HEADER: session_id,
+            MCP_PROTOCOL_VERSION_HEADER: protocol_version,
+        }
+        if last_event_id:
+            headers[LAST_EVENT_ID_HEADER] = last_event_id
+
+        try:
+            new_last_id = await _consume_sse_stream(http_session, url, headers, on_notification)
+            if new_last_id:
+                last_event_id = new_last_id
+            # Stream ended normally — reset attempt counter
+            attempt = 0
+        except asyncio.CancelledError:
+            logger.debug("GET SSE stream cancelled")
+            return
+        except MCPTransportError:
+            # Non-retryable HTTP errors (409, 4xx)
+            return
+        except Exception:
+            logger.debug("GET SSE stream error", exc_info=True)
+            attempt += 1
+
+        if attempt >= MAX_RECONNECTION_ATTEMPTS:
+            logger.debug("GET SSE stream max reconnection attempts (%s) exceeded", MAX_RECONNECTION_ATTEMPTS)
+            return
+
+        logger.info("GET SSE stream disconnected, reconnecting in %.1fs...", DEFAULT_RECONNECTION_DELAY)
+        await asyncio.sleep(DEFAULT_RECONNECTION_DELAY)
 
 
 async def terminate_session(

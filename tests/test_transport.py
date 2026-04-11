@@ -59,7 +59,8 @@ class TestIterSseEvents:
         response = _make_mock_response(lines)
         events = [e async for e in _iter_sse_events(response)]
         assert len(events) == 1
-        assert events[0] == data
+        assert events[0].data == data
+        assert events[0].event_id is None
 
     async def test_notification_then_response(self) -> None:
         notification = {"jsonrpc": "2.0", "method": "notifications/message", "params": {"level": "info"}}
@@ -75,10 +76,23 @@ class TestIterSseEvents:
         response = _make_mock_response(lines)
         events = [e async for e in _iter_sse_events(response)]
         assert len(events) == 2
-        assert events[0] == notification
-        assert events[1] == response_msg
+        assert events[0].data == notification
+        assert events[1].data == response_msg
 
-    async def test_skips_comments_and_ids(self) -> None:
+    async def test_event_id_tracked(self) -> None:
+        data = {"jsonrpc": "2.0", "id": 1, "result": {}}
+        lines = [
+            b"event: message\n",
+            b"id: evt-123\n",
+            b"data: " + json.dumps(data).encode() + b"\n",
+            b"\n",
+        ]
+        response = _make_mock_response(lines)
+        events = [e async for e in _iter_sse_events(response)]
+        assert len(events) == 1
+        assert events[0].event_id == "evt-123"
+
+    async def test_skips_comments(self) -> None:
         data = {"jsonrpc": "2.0", "id": 1, "result": {}}
         lines = [
             b": this is a comment\n",
@@ -90,6 +104,7 @@ class TestIterSseEvents:
         response = _make_mock_response(lines)
         events = [e async for e in _iter_sse_events(response)]
         assert len(events) == 1
+        assert events[0].event_id == "some-event-id"
 
     async def test_skips_non_message_events(self) -> None:
         lines = [
@@ -122,7 +137,7 @@ class TestIterSseEvents:
         ]
         response = _make_mock_response(lines)
         events = [e async for e in _iter_sse_events(response)]
-        assert events[0]["result"]["key"] == "value"
+        assert events[0].data["result"]["key"] == "value"
 
     async def test_flush_on_stream_end_without_blank(self) -> None:
         """Stream ends without trailing blank line — should still yield the event."""

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -93,6 +94,7 @@ class MCPClient:
         self._server_info: ServerInfo | None = None
         self._on_log = on_log
         self._on_progress = on_progress
+        self._sse_task: asyncio.Task[None] | None = None
 
     def _next_id(self) -> int:
         self._request_id += 1
@@ -121,7 +123,16 @@ class MCPClient:
         await self._initialize()
 
     async def close(self) -> None:
-        """Close the client: terminate MCP session and clean up HTTP session."""
+        """Close the client: stop SSE listener, terminate MCP session, clean up HTTP session."""
+        # Stop the background SSE listener
+        if self._sse_task is not None:
+            self._sse_task.cancel()
+            try:
+                await self._sse_task
+            except asyncio.CancelledError:
+                pass
+            self._sse_task = None
+
         if self._session is not None and self._session_id is not None:
             await _transport.terminate_session(
                 self._session,
@@ -186,6 +197,11 @@ class MCPClient:
             session_id=self._session_id,
             protocol_version=self._protocol_version,
         )
+
+        # Start background GET SSE stream for server-initiated notifications
+        # (only in stateful mode — when we have a session ID)
+        if self._session_id:
+            self._start_sse_listener()
 
         return server_info
 
@@ -327,6 +343,24 @@ class MCPClient:
     # Internal
     # ------------------------------------------------------------------
 
+    def _start_sse_listener(self) -> None:
+        """Start a background task for the GET SSE stream."""
+        on_notification = _build_notification_handler(self._on_log, self._on_progress)
+        session = self._get_session()
+        assert self._session_id is not None
+        self._sse_task = asyncio.create_task(
+            _transport.listen_sse(
+                http_session=session,
+                url=self._url,
+                session_id=self._session_id,
+                protocol_version=self._protocol_version,
+                on_notification=on_notification,
+            ),
+            name="mcp-sse-listener",
+        )
+        # Suppress "Task exception was never retrieved" warnings
+        self._sse_task.add_done_callback(_task_done_callback)
+
     async def _send(
         self,
         method: str,
@@ -358,6 +392,20 @@ class MCPClient:
         if new_session_id:
             self._session_id = new_session_id
         return result
+
+
+# ------------------------------------------------------------------
+# Task helpers
+# ------------------------------------------------------------------
+
+
+def _task_done_callback(task: asyncio.Task[None]) -> None:
+    """Log exceptions from background tasks instead of suppressing them."""
+    if task.cancelled():
+        return
+    exc = task.exception()
+    if exc is not None:
+        logger.error("Background SSE listener failed: %s", exc, exc_info=exc)
 
 
 # ------------------------------------------------------------------

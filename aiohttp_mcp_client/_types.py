@@ -15,6 +15,7 @@ from typing import Any, Literal, TypeAlias, TypeVar
 LATEST_PROTOCOL_VERSION: str = "2025-11-25"
 MCP_SESSION_ID_HEADER: str = "mcp-session-id"
 MCP_PROTOCOL_VERSION_HEADER: str = "mcp-protocol-version"
+LAST_EVENT_ID_HEADER: str = "last-event-id"
 CONTENT_TYPE_JSON: str = "application/json"
 CONTENT_TYPE_SSE: str = "text/event-stream"
 
