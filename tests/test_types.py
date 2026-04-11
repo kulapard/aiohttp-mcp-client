@@ -7,6 +7,7 @@ from aiohttp_mcp_client import (
     MCPError,
     MCPServerError,
     MCPTransportError,
+    PaginatedResult,
     Prompt,
     PromptArgument,
     PromptMessage,
@@ -118,3 +119,32 @@ class TestDataclasses:
         assert si.capabilities.tools is True
         assert si.capabilities.prompts is False
         assert si.instructions == "Use wisely"
+
+
+class TestPaginatedResult:
+    def test_acts_as_list(self) -> None:
+        r: PaginatedResult[int] = PaginatedResult([1, 2, 3])
+        assert len(r) == 3
+        assert list(r) == [1, 2, 3]
+        assert r[0] == 1
+
+    def test_next_cursor_none_by_default(self) -> None:
+        r: PaginatedResult[str] = PaginatedResult(["a", "b"])
+        assert r.next_cursor is None
+
+    def test_next_cursor_set(self) -> None:
+        r: PaginatedResult[str] = PaginatedResult(["a"], next_cursor="cursor123")
+        assert r.next_cursor == "cursor123"
+
+    def test_iterable(self) -> None:
+        r: PaginatedResult[int] = PaginatedResult([10, 20])
+        collected = list(r)
+        assert collected == [10, 20]
+
+    def test_bool_empty(self) -> None:
+        r: PaginatedResult[int] = PaginatedResult([])
+        assert not r
+
+    def test_bool_nonempty(self) -> None:
+        r: PaginatedResult[int] = PaginatedResult([1])
+        assert r

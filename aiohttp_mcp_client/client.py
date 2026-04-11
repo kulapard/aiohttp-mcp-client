@@ -18,6 +18,7 @@ from ._types import (
     LogHandler,
     LogMessage,
     MCPError,
+    PaginatedResult,
     Progress,
     ProgressHandler,
     Prompt,
@@ -195,12 +196,19 @@ class MCPClient:
     async def list_tools(
         self,
         *,
+        cursor: str | None = None,
         on_log: LogHandler | None = None,
         on_progress: ProgressHandler | None = None,
-    ) -> list[Tool]:
-        """List available tools on the server."""
-        result = await self._send("tools/list", None, on_log=on_log, on_progress=on_progress)
-        return [_parse_tool(t) for t in result.get("tools", [])]
+    ) -> PaginatedResult[Tool]:
+        """List available tools on the server.
+
+        Args:
+            cursor: Pagination cursor from a previous ``list_tools`` call.
+        """
+        params = {"cursor": cursor} if cursor else None
+        result = await self._send("tools/list", params, on_log=on_log, on_progress=on_progress)
+        tools = [_parse_tool(t) for t in result.get("tools", [])]
+        return PaginatedResult(tools, next_cursor=result.get("nextCursor"))
 
     async def call_tool(
         self,
@@ -232,12 +240,19 @@ class MCPClient:
     async def list_resources(
         self,
         *,
+        cursor: str | None = None,
         on_log: LogHandler | None = None,
         on_progress: ProgressHandler | None = None,
-    ) -> list[Resource]:
-        """List available resources on the server."""
-        result = await self._send("resources/list", None, on_log=on_log, on_progress=on_progress)
-        return [_parse_resource(r) for r in result.get("resources", [])]
+    ) -> PaginatedResult[Resource]:
+        """List available resources on the server.
+
+        Args:
+            cursor: Pagination cursor from a previous ``list_resources`` call.
+        """
+        params = {"cursor": cursor} if cursor else None
+        result = await self._send("resources/list", params, on_log=on_log, on_progress=on_progress)
+        resources = [_parse_resource(r) for r in result.get("resources", [])]
+        return PaginatedResult(resources, next_cursor=result.get("nextCursor"))
 
     async def read_resource(
         self,
@@ -257,22 +272,36 @@ class MCPClient:
     async def list_resource_templates(
         self,
         *,
+        cursor: str | None = None,
         on_log: LogHandler | None = None,
         on_progress: ProgressHandler | None = None,
-    ) -> list[ResourceTemplate]:
-        """List available resource templates on the server."""
-        result = await self._send("resources/templates/list", None, on_log=on_log, on_progress=on_progress)
-        return [_parse_resource_template(t) for t in result.get("resourceTemplates", [])]
+    ) -> PaginatedResult[ResourceTemplate]:
+        """List available resource templates on the server.
+
+        Args:
+            cursor: Pagination cursor from a previous ``list_resource_templates`` call.
+        """
+        params = {"cursor": cursor} if cursor else None
+        result = await self._send("resources/templates/list", params, on_log=on_log, on_progress=on_progress)
+        templates = [_parse_resource_template(t) for t in result.get("resourceTemplates", [])]
+        return PaginatedResult(templates, next_cursor=result.get("nextCursor"))
 
     async def list_prompts(
         self,
         *,
+        cursor: str | None = None,
         on_log: LogHandler | None = None,
         on_progress: ProgressHandler | None = None,
-    ) -> list[Prompt]:
-        """List available prompts on the server."""
-        result = await self._send("prompts/list", None, on_log=on_log, on_progress=on_progress)
-        return [_parse_prompt(p) for p in result.get("prompts", [])]
+    ) -> PaginatedResult[Prompt]:
+        """List available prompts on the server.
+
+        Args:
+            cursor: Pagination cursor from a previous ``list_prompts`` call.
+        """
+        params = {"cursor": cursor} if cursor else None
+        result = await self._send("prompts/list", params, on_log=on_log, on_progress=on_progress)
+        prompts = [_parse_prompt(p) for p in result.get("prompts", [])]
+        return PaginatedResult(prompts, next_cursor=result.get("nextCursor"))
 
     async def get_prompt(
         self,

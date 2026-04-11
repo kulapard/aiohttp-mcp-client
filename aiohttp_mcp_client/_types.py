@@ -5,9 +5,9 @@ All types are pure stdlib (dataclasses + typing). No external dependencies.
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Any, Literal, TypeAlias
+from typing import Any, Literal, TypeAlias, TypeVar
 
 # ---------------------------------------------------------------------------
 # Protocol constants
@@ -72,6 +72,29 @@ class Progress:
 
 LogHandler: TypeAlias = Callable[[LogMessage], Awaitable[None]]
 ProgressHandler: TypeAlias = Callable[[Progress], Awaitable[None]]
+
+
+# ---------------------------------------------------------------------------
+# Paginated results
+# ---------------------------------------------------------------------------
+
+T = TypeVar("T")
+
+
+class PaginatedResult(list[T]):
+    """A list subclass that carries an optional ``next_cursor`` for pagination.
+
+    Behaves exactly like a regular list, so existing code like
+    ``for tool in await client.list_tools()`` continues to work.
+    Access ``result.next_cursor`` to get the cursor for the next page,
+    or ``None`` if there are no more pages.
+    """
+
+    next_cursor: str | None
+
+    def __init__(self, items: Iterable[T], next_cursor: str | None = None) -> None:
+        super().__init__(items)
+        self.next_cursor = next_cursor
 
 
 # ---------------------------------------------------------------------------

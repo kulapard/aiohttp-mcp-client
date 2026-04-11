@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Exception hierarchy: `MCPError`, `MCPTransportError`, `MCPServerError`.
 - Accepts optional external `aiohttp.ClientSession`.
 - Notification callbacks (`on_log`, `on_progress`) for log messages and progress updates during tool calls. Configurable at client level and per-call.
+- Pagination support via `cursor` parameter on all list methods. Returns `PaginatedResult` (a list subclass with `next_cursor` attribute).
 
 ### Changed
 

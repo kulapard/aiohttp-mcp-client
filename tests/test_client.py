@@ -170,6 +170,32 @@ class TestPrompts:
             assert result.messages[0].role == "user"
 
 
+class TestPagination:
+    async def test_list_tools_returns_paginated_result(self, mcp_server: str) -> None:
+        async with MCPClient(mcp_server) as client:
+            tools = await client.list_tools()
+            assert len(tools) >= 1
+            assert tools.next_cursor is None  # server doesn't paginate in tests
+
+    async def test_list_resources_returns_paginated_result(self, mcp_server: str) -> None:
+        async with MCPClient(mcp_server) as client:
+            resources = await client.list_resources()
+            assert len(resources) >= 1
+            assert resources.next_cursor is None
+
+    async def test_list_prompts_returns_paginated_result(self, mcp_server: str) -> None:
+        async with MCPClient(mcp_server) as client:
+            prompts = await client.list_prompts()
+            assert len(prompts) >= 1
+            assert prompts.next_cursor is None
+
+    async def test_list_resource_templates_returns_paginated_result(self, mcp_server: str) -> None:
+        async with MCPClient(mcp_server) as client:
+            templates = await client.list_resource_templates()
+            assert len(templates) >= 1
+            assert templates.next_cursor is None
+
+
 class TestExternalSession:
     async def test_with_external_session(self, mcp_server: str) -> None:
         async with aiohttp.ClientSession() as session:
