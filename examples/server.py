@@ -96,6 +96,26 @@ async def calculate(expression: str, ctx: Context) -> str:
     return str(result)
 
 
+@mcp.tool()
+async def process_data(items: int, ctx: Context) -> str:
+    """Process N items with progress and log notifications.
+
+    Demonstrates server notifications during a long-running tool call.
+    """
+    import asyncio as _asyncio
+
+    await ctx.info(f"Starting to process {items} items...")
+
+    for i in range(1, items + 1):
+        await _asyncio.sleep(0.3)  # simulate work
+        await ctx.report_progress(float(i), float(items), message=f"Processing item {i}")
+        if i == items // 2:
+            await ctx.warning(f"Halfway there — {i}/{items} items processed")
+
+    await ctx.info(f"Done! Processed {items} items.")
+    return f"Successfully processed {items} items"
+
+
 @mcp.resource("info://server")
 async def server_info() -> str:
     """Information about this demo server."""
@@ -112,5 +132,11 @@ app = build_mcp_app(mcp, path="/mcp")
 
 
 if __name__ == "__main__":
+    import logging
+
+    logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    # Quiet down noisy loggers
+    logging.getLogger("aiohttp").setLevel(logging.WARNING)
+
     print("Starting MCP server on http://localhost:8080/mcp")
     web.run_app(app, host="localhost", port=8080)
