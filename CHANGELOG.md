@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Typed result objects: `Tool`, `ToolResult`, `Resource`, `ResourceContents`, `ResourceTemplate`, `Prompt`, `GetPromptResult`, content blocks.
 - Exception hierarchy: `MCPError`, `MCPTransportError`, `MCPServerError`.
 - Accepts optional external `aiohttp.ClientSession`.
+- Notification callbacks (`on_log`, `on_progress`) for log messages and progress updates during tool calls. Configurable at client level and per-call.
 
 ### Changed
 

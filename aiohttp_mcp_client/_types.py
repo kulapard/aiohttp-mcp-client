@@ -5,6 +5,7 @@ All types are pure stdlib (dataclasses + typing). No external dependencies.
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal, TypeAlias
 
@@ -44,6 +45,33 @@ class MCPServerError(MCPError):
         self.message = message
         self.data = data
         super().__init__(f"[{code}] {message}")
+
+
+# ---------------------------------------------------------------------------
+# Notification types
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LogMessage:
+    """A log message notification from the server."""
+
+    level: str
+    data: str
+    logger_name: str | None = None
+
+
+@dataclass(frozen=True)
+class Progress:
+    """A progress notification from the server."""
+
+    progress: float
+    total: float | None = None
+    message: str | None = None
+
+
+LogHandler: TypeAlias = Callable[[LogMessage], Awaitable[None]]
+ProgressHandler: TypeAlias = Callable[[Progress], Awaitable[None]]
 
 
 # ---------------------------------------------------------------------------

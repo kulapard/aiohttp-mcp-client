@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from typing import Any
 
 import aiohttp
@@ -102,12 +102,13 @@ async def send_request(
     request_id: int,
     session_id: str | None,
     protocol_version: str = LATEST_PROTOCOL_VERSION,
+    on_notification: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> tuple[dict[str, Any], str | None]:
     """Send a JSON-RPC request and return (result_dict, session_id_from_response).
 
     Handles both ``application/json`` and ``text/event-stream`` responses.
-    For SSE responses, notifications are silently consumed and only the
-    final response is returned.
+    For SSE responses, notifications are routed to ``on_notification`` if
+    provided, otherwise silently consumed. Only the final response is returned.
 
     Raises:
         MCPTransportError: On HTTP errors or unexpected response formats.
@@ -133,12 +134,15 @@ async def send_request(
         content_type = response.content_type or ""
 
         if content_type.startswith(CONTENT_TYPE_SSE):
-            # SSE stream: consume notifications, return final response
+            # SSE stream: route notifications, return final response
             async for msg in _iter_sse_events(response):
                 if "result" in msg or "error" in msg:
                     return _extract_result(msg), new_session_id
-                # Notification or other non-response message — skip
-                logger.debug("SSE notification (discarded): %s", msg.get("method", "unknown"))
+                # Notification — route to callback or discard
+                if on_notification is not None:
+                    await on_notification(msg)
+                else:
+                    logger.debug("SSE notification (discarded): %s", msg.get("method", "unknown"))
             raise MCPTransportError(f"SSE stream ended without a response for request {request_id}")
 
         # JSON response

@@ -48,6 +48,29 @@ async def main():
 asyncio.run(main())
 ```
 
+### Notification callbacks
+
+The server can send log messages and progress updates during tool calls. You can handle these with async callbacks — set defaults at client level, or override per call:
+
+```python
+from aiohttp_mcp_client import MCPClient, LogMessage, Progress
+
+async def on_log(msg: LogMessage) -> None:
+    print(f"[{msg.level}] {msg.data}")
+
+async def on_progress(msg: Progress) -> None:
+    pct = f"{msg.progress}/{msg.total}" if msg.total else f"{msg.progress}"
+    print(f"Progress: {pct}")
+
+async def main():
+    # Client-level defaults
+    async with MCPClient(url, on_log=on_log, on_progress=on_progress) as client:
+        result = await client.call_tool("slow_task", {"steps": 10})
+
+        # Per-call override
+        result = await client.call_tool("other_task", on_log=my_other_handler)
+```
+
 ### Using an existing aiohttp session
 
 ```python
@@ -62,11 +85,13 @@ async def main():
 
 ## API
 
-### `MCPClient(url, *, session=None, client_info=None)`
+### `MCPClient(url, *, session=None, client_info=None, on_log=None, on_progress=None)`
 
 - `url` — MCP server endpoint URL
 - `session` — Optional `aiohttp.ClientSession` (one is created if not provided)
 - `client_info` — Optional `{"name": "...", "version": "..."}` dict
+- `on_log` — Default async callback for `LogMessage` notifications
+- `on_progress` — Default async callback for `Progress` notifications
 
 ### Methods
 
@@ -81,9 +106,10 @@ async def main():
 | `get_prompt(name, arguments)` | Get a prompt by name |
 | `ping()` | Send a ping |
 
+All methods except `ping()` accept optional `on_log` and `on_progress` keyword arguments to override the client-level defaults for that call.
+
 ## Future Plans
 
-- Notification callbacks (progress, log messages) during tool calls
 - GET SSE stream for server-initiated notifications
 - Pagination support for list methods
 - SSE resumability with `Last-Event-ID`

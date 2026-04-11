@@ -2,6 +2,7 @@
 
 import json
 from collections.abc import AsyncIterator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -235,3 +236,85 @@ class TestSendRequest:
         )
         assert result == {"tools": []}
         assert session_id is None
+
+    async def test_on_notification_callback_called(self) -> None:
+        """on_notification callback should be called for SSE notifications."""
+        log_notif = {
+            "jsonrpc": "2.0",
+            "method": "notifications/message",
+            "params": {"level": "info", "data": "Processing..."},
+        }
+        progress_notif = {
+            "jsonrpc": "2.0",
+            "method": "notifications/progress",
+            "params": {"progress": 0.5, "total": 1.0},
+        }
+        response_msg = {"jsonrpc": "2.0", "id": 1, "result": {"content": [], "isError": False}}
+
+        lines = [
+            b"event: message\n",
+            b"data: " + json.dumps(log_notif).encode() + b"\n",
+            b"\n",
+            b"event: message\n",
+            b"data: " + json.dumps(progress_notif).encode() + b"\n",
+            b"\n",
+            b"event: message\n",
+            b"data: " + json.dumps(response_msg).encode() + b"\n",
+            b"\n",
+        ]
+
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.content_type = "text/event-stream"
+        mock_response.headers = {}
+        mock_response.content = _MockContent(lines)
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=False)
+
+        mock_session = MagicMock()
+        mock_session.post = MagicMock(return_value=mock_response)
+
+        received: list[dict[str, Any]] = []
+
+        async def on_notification(msg: dict[str, Any]) -> None:
+            received.append(msg)
+
+        _result, _ = await send_request(
+            http_session=mock_session,
+            url="http://test/mcp",
+            method="tools/call",
+            params={"name": "test"},
+            request_id=1,
+            session_id=None,
+            on_notification=on_notification,
+        )
+        assert len(received) == 2
+        assert received[0]["method"] == "notifications/message"
+        assert received[1]["method"] == "notifications/progress"
+
+    async def test_on_notification_not_called_for_json_response(self) -> None:
+        """on_notification should not be called for plain JSON responses."""
+        result_data = {"jsonrpc": "2.0", "id": 1, "result": {"tools": []}}
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.content_type = "application/json"
+        mock_response.headers = {}
+        mock_response.json = AsyncMock(return_value=result_data)
+        mock_response.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_response.__aexit__ = AsyncMock(return_value=False)
+
+        mock_session = MagicMock()
+        mock_session.post = MagicMock(return_value=mock_response)
+
+        callback = AsyncMock()
+
+        _result, _ = await send_request(
+            http_session=mock_session,
+            url="http://test/mcp",
+            method="tools/list",
+            params=None,
+            request_id=1,
+            session_id=None,
+            on_notification=callback,
+        )
+        callback.assert_not_called()

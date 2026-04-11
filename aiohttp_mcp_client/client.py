@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 import aiohttp
@@ -14,7 +15,11 @@ from ._types import (
     ContentBlock,
     GetPromptResult,
     ImageContent,
+    LogHandler,
+    LogMessage,
     MCPError,
+    Progress,
+    ProgressHandler,
     Prompt,
     PromptArgument,
     PromptMessage,
@@ -56,6 +61,8 @@ class MCPClient:
         *,
         session: aiohttp.ClientSession | None = None,
         client_info: dict[str, str] | None = None,
+        on_log: LogHandler | None = None,
+        on_progress: ProgressHandler | None = None,
     ) -> None:
         """Initialize the MCP client.
 
@@ -65,6 +72,10 @@ class MCPClient:
                 one will be created and managed by the client.
             client_info: Optional dict with ``name`` and ``version`` keys
                 identifying this client to the server.
+            on_log: Default async callback for log notifications from the server.
+                Called with a :class:`LogMessage` for each ``notifications/message``.
+            on_progress: Default async callback for progress notifications.
+                Called with a :class:`Progress` for each ``notifications/progress``.
         """
         self._url = url
         self._external_session = session
@@ -79,6 +90,8 @@ class MCPClient:
         self._request_id: int = 0
         self._initialized = False
         self._server_info: ServerInfo | None = None
+        self._on_log = on_log
+        self._on_progress = on_progress
 
     def _next_id(self) -> int:
         self._request_id += 1
@@ -179,57 +192,95 @@ class MCPClient:
         """Send a ping to the server."""
         await self._send("ping", None)
 
-    async def list_tools(self) -> list[Tool]:
+    async def list_tools(
+        self,
+        *,
+        on_log: LogHandler | None = None,
+        on_progress: ProgressHandler | None = None,
+    ) -> list[Tool]:
         """List available tools on the server."""
-        result = await self._send("tools/list", None)
+        result = await self._send("tools/list", None, on_log=on_log, on_progress=on_progress)
         return [_parse_tool(t) for t in result.get("tools", [])]
 
     async def call_tool(
         self,
         name: str,
         arguments: dict[str, Any] | None = None,
+        *,
+        on_log: LogHandler | None = None,
+        on_progress: ProgressHandler | None = None,
     ) -> ToolResult:
         """Call a tool on the server.
 
         Args:
             name: Tool name.
             arguments: Tool arguments.
+            on_log: Per-call async callback for log notifications. Overrides
+                the client-level ``on_log`` for this call.
+            on_progress: Per-call async callback for progress notifications.
+                Overrides the client-level ``on_progress`` for this call.
 
         Returns:
             ToolResult with content blocks and is_error flag.
         """
-        result = await self._send("tools/call", {"name": name, "arguments": arguments or {}})
+        result = await self._send(
+            "tools/call", {"name": name, "arguments": arguments or {}}, on_log=on_log, on_progress=on_progress
+        )
         content = [_parse_content_block(c) for c in result.get("content", [])]
         return ToolResult(content=content, is_error=result.get("isError", False))
 
-    async def list_resources(self) -> list[Resource]:
+    async def list_resources(
+        self,
+        *,
+        on_log: LogHandler | None = None,
+        on_progress: ProgressHandler | None = None,
+    ) -> list[Resource]:
         """List available resources on the server."""
-        result = await self._send("resources/list", None)
+        result = await self._send("resources/list", None, on_log=on_log, on_progress=on_progress)
         return [_parse_resource(r) for r in result.get("resources", [])]
 
-    async def read_resource(self, uri: str) -> list[ResourceContents]:
+    async def read_resource(
+        self,
+        uri: str,
+        *,
+        on_log: LogHandler | None = None,
+        on_progress: ProgressHandler | None = None,
+    ) -> list[ResourceContents]:
         """Read a resource by URI.
 
         Args:
             uri: Resource URI.
         """
-        result = await self._send("resources/read", {"uri": uri})
+        result = await self._send("resources/read", {"uri": uri}, on_log=on_log, on_progress=on_progress)
         return [_parse_resource_contents(c) for c in result.get("contents", [])]
 
-    async def list_resource_templates(self) -> list[ResourceTemplate]:
+    async def list_resource_templates(
+        self,
+        *,
+        on_log: LogHandler | None = None,
+        on_progress: ProgressHandler | None = None,
+    ) -> list[ResourceTemplate]:
         """List available resource templates on the server."""
-        result = await self._send("resources/templates/list", None)
+        result = await self._send("resources/templates/list", None, on_log=on_log, on_progress=on_progress)
         return [_parse_resource_template(t) for t in result.get("resourceTemplates", [])]
 
-    async def list_prompts(self) -> list[Prompt]:
+    async def list_prompts(
+        self,
+        *,
+        on_log: LogHandler | None = None,
+        on_progress: ProgressHandler | None = None,
+    ) -> list[Prompt]:
         """List available prompts on the server."""
-        result = await self._send("prompts/list", None)
+        result = await self._send("prompts/list", None, on_log=on_log, on_progress=on_progress)
         return [_parse_prompt(p) for p in result.get("prompts", [])]
 
     async def get_prompt(
         self,
         name: str,
         arguments: dict[str, str] | None = None,
+        *,
+        on_log: LogHandler | None = None,
+        on_progress: ProgressHandler | None = None,
     ) -> GetPromptResult:
         """Get a prompt by name.
 
@@ -240,17 +291,29 @@ class MCPClient:
         params: dict[str, Any] = {"name": name}
         if arguments is not None:
             params["arguments"] = arguments
-        result = await self._send("prompts/get", params)
+        result = await self._send("prompts/get", params, on_log=on_log, on_progress=on_progress)
         return _parse_get_prompt_result(result)
 
     # ------------------------------------------------------------------
     # Internal
     # ------------------------------------------------------------------
 
-    async def _send(self, method: str, params: dict[str, Any] | None) -> dict[str, Any]:
+    async def _send(
+        self,
+        method: str,
+        params: dict[str, Any] | None,
+        *,
+        on_log: LogHandler | None = None,
+        on_progress: ProgressHandler | None = None,
+    ) -> dict[str, Any]:
         """Send a JSON-RPC request and return the result dict."""
         if not self._initialized:
             raise MCPError("Client is not initialized. Use 'async with MCPClient(...)' or call open() first.")
+
+        # Merge per-call overrides with client-level defaults
+        log_handler = on_log or self._on_log
+        progress_handler = on_progress or self._on_progress
+        on_notification = _build_notification_handler(log_handler, progress_handler)
 
         session = self._get_session()
         result, new_session_id = await _transport.send_request(
@@ -261,10 +324,51 @@ class MCPClient:
             request_id=self._next_id(),
             session_id=self._session_id,
             protocol_version=self._protocol_version,
+            on_notification=on_notification,
         )
         if new_session_id:
             self._session_id = new_session_id
         return result
+
+
+# ------------------------------------------------------------------
+# Notification dispatcher
+# ------------------------------------------------------------------
+
+
+def _build_notification_handler(
+    log_handler: LogHandler | None,
+    progress_handler: ProgressHandler | None,
+) -> Callable[[dict[str, Any]], Awaitable[None]] | None:
+    """Build a notification dispatcher from optional log/progress handlers.
+
+    Returns None if no handlers are configured (transport will discard notifications).
+    """
+    if log_handler is None and progress_handler is None:
+        return None
+
+    async def _handle(msg: dict[str, Any]) -> None:
+        method = msg.get("method", "")
+        params = msg.get("params", {})
+
+        if method == "notifications/message" and log_handler is not None:
+            await log_handler(
+                LogMessage(
+                    level=params.get("level", "info"),
+                    data=params.get("data", ""),
+                    logger_name=params.get("logger"),
+                )
+            )
+        elif method == "notifications/progress" and progress_handler is not None:
+            await progress_handler(
+                Progress(
+                    progress=params.get("progress", 0.0),
+                    total=params.get("total"),
+                    message=params.get("message"),
+                )
+            )
+
+    return _handle
 
 
 # ------------------------------------------------------------------
