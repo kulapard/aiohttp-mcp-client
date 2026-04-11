@@ -135,7 +135,7 @@ def _create_test_app_with_notifications() -> web.Application:
             await ctx.info(f"Step {i + 1}/{steps}")
         return f"Completed {steps} steps"
 
-    return build_mcp_app(mcp, path="/mcp", stateless=True)  # type: ignore[no-any-return]
+    return build_mcp_app(mcp, path="/mcp", stateless=True)
 
 
 @pytest.fixture

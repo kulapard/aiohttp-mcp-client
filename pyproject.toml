@@ -58,7 +58,7 @@ include = [
 
 [dependency-groups]
 dev = [
-    "aiohttp-mcp>=1.0.0rc1",
+    "aiohttp-mcp",
     "mypy>=1.15.0",
     "pytest>=8.3.5",
     "pytest-aiohttp>=1.1.0",
@@ -138,3 +138,6 @@ exclude_also = [
     "assert False",
     "^\\s*\\.\\.\\.\\s*$",
 ]
+
+[tool.uv.sources]
+aiohttp-mcp = { path = "../aiohttp-mcp", editable = true }
