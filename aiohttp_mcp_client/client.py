@@ -45,7 +45,9 @@ class MCPClient:
 
         async with MCPClient("http://localhost:8080/mcp") as client:
             tools = await client.list_tools()
-            result = await client.call_tool("my_tool", {"arg": "value"})
+            result = await client.call_tool(
+                "my_tool", {"arg": "value"}
+            )
 
     Or with explicit lifecycle management::
 

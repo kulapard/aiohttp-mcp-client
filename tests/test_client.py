@@ -81,9 +81,7 @@ class TestMCPClientLifecycle:
             await client.list_tools()
 
     async def test_custom_client_info(self, mcp_server: str) -> None:
-        async with MCPClient(
-            mcp_server, client_info={"name": "my-app", "version": "2.0.0"}
-        ) as client:
+        async with MCPClient(mcp_server, client_info={"name": "my-app", "version": "2.0.0"}) as client:
             tools = await client.list_tools()
             assert isinstance(tools, list)
 

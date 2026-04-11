@@ -30,11 +30,13 @@ class TestBuildNotificationHandler:
         handler = _build_notification_handler(on_log, None)
         assert handler is not None
 
-        await handler({
-            "jsonrpc": "2.0",
-            "method": "notifications/message",
-            "params": {"level": "warning", "data": "watch out", "logger": "my.logger"},
-        })
+        await handler(
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/message",
+                "params": {"level": "warning", "data": "watch out", "logger": "my.logger"},
+            }
+        )
 
         assert len(received) == 1
         assert received[0].level == "warning"
@@ -50,11 +52,13 @@ class TestBuildNotificationHandler:
         handler = _build_notification_handler(None, on_progress)
         assert handler is not None
 
-        await handler({
-            "jsonrpc": "2.0",
-            "method": "notifications/progress",
-            "params": {"progress": 0.75, "total": 1.0, "message": "Almost done"},
-        })
+        await handler(
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/progress",
+                "params": {"progress": 0.75, "total": 1.0, "message": "Almost done"},
+            }
+        )
 
         assert len(received) == 1
         assert received[0].progress == 0.75
@@ -71,11 +75,13 @@ class TestBuildNotificationHandler:
         assert handler is not None
 
         # Unknown notification type — should not crash
-        await handler({
-            "jsonrpc": "2.0",
-            "method": "notifications/unknown",
-            "params": {},
-        })
+        await handler(
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/unknown",
+                "params": {},
+            }
+        )
         assert len(received) == 0
 
     async def test_both_handlers(self) -> None:
@@ -91,16 +97,20 @@ class TestBuildNotificationHandler:
         handler = _build_notification_handler(on_log, on_progress)
         assert handler is not None
 
-        await handler({
-            "jsonrpc": "2.0",
-            "method": "notifications/message",
-            "params": {"level": "info", "data": "hello"},
-        })
-        await handler({
-            "jsonrpc": "2.0",
-            "method": "notifications/progress",
-            "params": {"progress": 1.0},
-        })
+        await handler(
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/message",
+                "params": {"level": "info", "data": "hello"},
+            }
+        )
+        await handler(
+            {
+                "jsonrpc": "2.0",
+                "method": "notifications/progress",
+                "params": {"progress": 1.0},
+            }
+        )
 
         assert len(logs) == 1
         assert len(progresses) == 1
