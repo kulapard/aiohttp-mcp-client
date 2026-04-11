@@ -81,17 +81,13 @@ pre-commit-update:
 # Create a new release
 release: clean build publish
 
-# Example runners
-run-server:
-	uv run examples/server.py
-
+# Example runner
 run-client:
 	uv run examples/client.py
 
 # MCP server configuration for Claude Desktop and Claude Code
 # The demo server runs on http://localhost:8080/mcp (Streamable HTTP).
-# "setup-*" targets register it; "remove-*" targets unregister it.
-# You still need to start the server separately with: make run-server
+# Start it from the aiohttp-mcp repo: cd ../aiohttp-mcp && make run-server
 
 CLAUDE_DESKTOP_CONFIG := $(HOME)/Library/Application Support/Claude/claude_desktop_config.json
 CLAUDE_CODE_CONFIG := $(HOME)/.claude/settings.json
@@ -157,9 +153,8 @@ help:
 	@echo "  make lint       - Run linting"
 	@echo "  make release    - Create a new release (clean, build, publish)"
 	@echo ""
-	@echo "Example runners:"
-	@echo "  make run-server            - Run demo MCP server on http://localhost:8080/mcp"
-	@echo "  make run-client            - Run demo MCP client"
+	@echo "Example:"
+	@echo "  make run-client            - Run demo MCP client (start server from aiohttp-mcp first)"
 	@echo ""
 	@echo "MCP configuration:"
 	@echo "  make setup-claude-desktop  - Register demo server in Claude Desktop"
