@@ -1,7 +1,7 @@
 """Minimal MCP client example.
 
-    uv run examples/server.py   # in another terminal
-    uv run examples/client.py
+uv run examples/server.py   # in another terminal
+uv run examples/client.py
 """
 
 import asyncio
