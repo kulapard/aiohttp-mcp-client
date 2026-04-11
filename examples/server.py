@@ -18,9 +18,26 @@ import ast
 import datetime
 import operator
 import platform
+import sys
 
 from aiohttp import web
 from aiohttp_mcp import AiohttpMCP, Context, build_mcp_app
+
+# Workaround: aiohttp 3.13.x + Python 3.14 + macOS raises OSError
+# in tcp_keepalive due to TransportSocket wrapper incompatibility.
+# Patch the reference in web_protocol (where it's actually called).
+if sys.version_info >= (3, 14):
+    from aiohttp import web_protocol as _wp
+
+    _orig_keepalive = _wp.tcp_keepalive
+
+    def _safe_keepalive(transport: object) -> None:
+        try:
+            _orig_keepalive(transport)  # type: ignore[arg-type]
+        except OSError:
+            pass
+
+    _wp.tcp_keepalive = _safe_keepalive  # type: ignore[assignment]
 
 mcp = AiohttpMCP(name="demo-server")
 
@@ -92,6 +109,7 @@ async def summarize(text: str) -> str:
 
 
 app = build_mcp_app(mcp, path="/mcp")
+
 
 if __name__ == "__main__":
     print("Starting MCP server on http://localhost:8080/mcp")
