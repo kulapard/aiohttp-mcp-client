@@ -6,7 +6,6 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 from aiohttp_mcp import AiohttpMCP, build_mcp_app
-from aiohttp_mcp.app import TransportMode
 
 from aiohttp_mcp_client import (
     LogMessage,
@@ -126,7 +125,7 @@ def _create_test_app_with_notifications() -> web.Application:
             await ctx.info(f"Step {i + 1}/{steps}")
         return f"Completed {steps} steps"
 
-    return build_mcp_app(mcp, path="/mcp", transport_mode=TransportMode.STREAMABLE_HTTP, stateless=True)  # type: ignore[no-any-return]
+    return build_mcp_app(mcp, path="/mcp", stateless=True)  # type: ignore[no-any-return]
 
 
 @pytest.fixture
@@ -137,10 +136,7 @@ async def notify_server() -> Any:
     try:
         yield f"http://localhost:{server.port}/mcp"
     finally:
-        try:
-            await server.close()
-        except RuntimeError:
-            pass
+        await server.close()
 
 
 class TestNotificationCallbacksIntegration:
@@ -187,6 +183,21 @@ class TestNotificationCallbacksIntegration:
             result = await client.call_tool("slow_task", {"steps": 2})
             assert not result.is_error
 
+    async def test_progress_callback(self, notify_server: str) -> None:
+        progresses: list[Progress] = []
+
+        async def on_progress(msg: Progress) -> None:
+            progresses.append(msg)
+
+        async with MCPClient(notify_server, on_progress=on_progress) as client:
+            result = await client.call_tool("slow_task", {"steps": 2})
+            assert not result.is_error
+
+        assert len(progresses) == 2
+        assert progresses[0].progress == 1.0
+        assert progresses[0].total == 2.0
+        assert progresses[1].progress == 2.0
+
     async def test_both_callbacks_together(self, notify_server: str) -> None:
         logs: list[LogMessage] = []
         progresses: list[Progress] = []
@@ -202,5 +213,4 @@ class TestNotificationCallbacksIntegration:
             assert not result.is_error
 
         assert len(logs) == 3
-        # Progress notifications may not be emitted by the server in stateless mode;
-        # the progress handler is tested in unit tests above.
+        assert len(progresses) == 3

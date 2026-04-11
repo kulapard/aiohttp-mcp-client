@@ -7,7 +7,6 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 from aiohttp_mcp import AiohttpMCP, build_mcp_app
-from aiohttp_mcp.app import TransportMode
 
 from aiohttp_mcp_client import (
     MCPClient,
@@ -45,7 +44,7 @@ def _create_test_app() -> web.Application:
         """A simple prompt."""
         return f"Tell me about {topic}"
 
-    return build_mcp_app(mcp, path="/mcp", transport_mode=TransportMode.STREAMABLE_HTTP, stateless=True)  # type: ignore[no-any-return]
+    return build_mcp_app(mcp, path="/mcp")  # type: ignore[no-any-return]
 
 
 @pytest.fixture
@@ -57,11 +56,7 @@ async def mcp_server() -> Any:
     try:
         yield f"http://localhost:{server.port}/mcp"
     finally:
-        try:
-            await server.close()
-        except RuntimeError:
-            # anyio cancel scope cleanup issue in aiohttp-mcp's session manager
-            pass
+        await server.close()
 
 
 class TestMCPClientLifecycle:
