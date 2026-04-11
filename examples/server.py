@@ -1,10 +1,9 @@
 """Minimal MCP server for testing the client.
 
-    uv run examples/server.py
+uv run examples/server.py
 """
 
 from aiohttp import web
-
 from aiohttp_mcp import AiohttpMCP, build_mcp_app
 
 mcp = AiohttpMCP(name="example-server")
