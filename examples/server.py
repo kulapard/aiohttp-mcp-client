@@ -102,7 +102,7 @@ async def process_data(items: int, ctx: Context) -> str:
 
     Demonstrates server notifications during a long-running tool call.
     """
-    import asyncio as _asyncio
+    import asyncio as _asyncio  # noqa: PLC0415
 
     await ctx.info(f"Starting to process {items} items...")
 
