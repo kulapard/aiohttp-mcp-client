@@ -52,6 +52,7 @@ packages = ["aiohttp_mcp_client"]
 [tool.hatch.build.targets.sdist]
 include = [
     "aiohttp_mcp_client/**/*.py",
+    "aiohttp_mcp_client/py.typed",
     "README.md",
     "LICENSE",
 ]
@@ -69,6 +70,7 @@ dev = [
 
 [tool.hatch.build]
 only-packages = true
+artifacts = ["aiohttp_mcp_client/py.typed"]
 
 [tool.mypy]
 strict = true
