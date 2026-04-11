@@ -135,7 +135,7 @@ async def send_request(
         MCPServerError: On JSON-RPC error responses.
     """
     headers = _build_headers(session_id, protocol_version)
-    body = {
+    body: dict[str, Any] = {
         "jsonrpc": "2.0",
         "id": request_id,
         "method": method,
