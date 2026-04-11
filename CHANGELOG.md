@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - GET SSE stream for server-initiated notifications in stateful mode. Background task auto-starts when a session ID is present, with auto-reconnect.
 - SSE resumability via `Last-Event-ID` header tracking for both POST and GET streams.
 - Client-side request cancellation: cancelling an `asyncio.Task` running `call_tool` (or any method) sends `notifications/cancelled` to the server per MCP spec.
+- PEP 561 `py.typed` marker for inline type checking support.
 
 ### Changed
 
