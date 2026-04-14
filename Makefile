@@ -81,12 +81,64 @@ pre-commit-update:
 # Create a new release
 release: clean build publish
 
-# Example runners
-run-server:
-	uv run examples/server.py
-
+# Example runner
 run-client:
 	uv run examples/client.py
+
+# MCP server configuration for Claude Desktop and Claude Code
+# The demo server runs on http://localhost:8080/mcp (Streamable HTTP).
+# Start it from the aiohttp-mcp repo: cd ../aiohttp-mcp && make run-server
+
+CLAUDE_DESKTOP_CONFIG := $(HOME)/Library/Application Support/Claude/claude_desktop_config.json
+CLAUDE_CODE_CONFIG := $(HOME)/.claude/settings.json
+MCP_SERVER_NAME := aiohttp-mcp-demo
+MCP_SERVER_URL := http://localhost:8080/mcp
+
+setup-claude-desktop:
+	@python3 -c "\
+	import json, os, sys; \
+	p = os.path.expanduser('$(CLAUDE_DESKTOP_CONFIG)'); \
+	c = json.load(open(p)) if os.path.exists(p) else {}; \
+	c.setdefault('mcpServers', {})['$(MCP_SERVER_NAME)'] = {'url': '$(MCP_SERVER_URL)'}; \
+	json.dump(c, open(p, 'w'), indent=2); \
+	print('Added \"$(MCP_SERVER_NAME)\" to Claude Desktop.'); \
+	print('  URL: $(MCP_SERVER_URL)'); \
+	print('  Config: ' + p); \
+	print(); \
+	print('Start the server:  make run-server'); \
+	print('Then restart Claude Desktop.')"
+
+setup-claude-code:
+	@python3 -c "\
+	import json, os; \
+	p = os.path.expanduser('$(CLAUDE_CODE_CONFIG)'); \
+	c = json.load(open(p)) if os.path.exists(p) else {}; \
+	c.setdefault('mcpServers', {})['$(MCP_SERVER_NAME)'] = {'url': '$(MCP_SERVER_URL)'}; \
+	json.dump(c, open(p, 'w'), indent=2); \
+	print('Added \"$(MCP_SERVER_NAME)\" to Claude Code.'); \
+	print('  URL: $(MCP_SERVER_URL)'); \
+	print('  Config: ' + p); \
+	print(); \
+	print('Start the server:  make run-server'); \
+	print('Then run /mcp in Claude Code to verify.')"
+
+remove-claude-desktop:
+	@python3 -c "\
+	import json, os; \
+	p = os.path.expanduser('$(CLAUDE_DESKTOP_CONFIG)'); \
+	c = json.load(open(p)) if os.path.exists(p) else {}; \
+	removed = c.get('mcpServers', {}).pop('$(MCP_SERVER_NAME)', None); \
+	json.dump(c, open(p, 'w'), indent=2); \
+	print('Removed.' if removed else 'Not found in config.')"
+
+remove-claude-code:
+	@python3 -c "\
+	import json, os; \
+	p = os.path.expanduser('$(CLAUDE_CODE_CONFIG)'); \
+	c = json.load(open(p)) if os.path.exists(p) else {}; \
+	removed = c.get('mcpServers', {}).pop('$(MCP_SERVER_NAME)', None); \
+	json.dump(c, open(p, 'w'), indent=2); \
+	print('Removed.' if removed else 'Not found in config.')"
 
 # Show help
 help:
@@ -101,6 +153,11 @@ help:
 	@echo "  make lint       - Run linting"
 	@echo "  make release    - Create a new release (clean, build, publish)"
 	@echo ""
-	@echo "Example runners:"
-	@echo "  make run-server - Run demo MCP server on http://localhost:8080/mcp"
-	@echo "  make run-client - Run demo MCP client"
+	@echo "Example:"
+	@echo "  make run-client            - Run demo MCP client (start server from aiohttp-mcp first)"
+	@echo ""
+	@echo "MCP configuration:"
+	@echo "  make setup-claude-desktop  - Register demo server in Claude Desktop"
+	@echo "  make setup-claude-code     - Register demo server in Claude Code"
+	@echo "  make remove-claude-desktop - Remove demo server from Claude Desktop"
+	@echo "  make remove-claude-code    - Remove demo server from Claude Code"
