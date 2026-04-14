@@ -141,4 +141,3 @@ exclude_also = [
     "assert False",
     "^\\s*\\.\\.\\.\\s*$",
 ]
-
