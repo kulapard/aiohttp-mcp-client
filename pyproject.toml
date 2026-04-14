@@ -79,6 +79,7 @@ exclude = ["examples/"]
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_decorators = false
+warn_return_any = false
 
 [[tool.mypy.overrides]]
 module = "aiohttp_mcp.*"
