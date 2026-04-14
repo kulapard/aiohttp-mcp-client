@@ -59,7 +59,7 @@ include = [
 
 [dependency-groups]
 dev = [
-    "aiohttp-mcp",
+    "aiohttp-mcp>=1.0.0rc1",
     "mypy>=1.15.0",
     "pytest>=8.3.5",
     "pytest-aiohttp>=1.1.0",
