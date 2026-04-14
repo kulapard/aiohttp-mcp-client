@@ -15,7 +15,6 @@ concurrency: ${{ github.ref }}
 
 env:
   MIN_PYTHON_VERSION: "3.11"
-  UV_NO_SOURCES: "true"
 
 jobs:
   pre-commit:

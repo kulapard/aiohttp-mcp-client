@@ -142,5 +142,3 @@ exclude_also = [
     "^\\s*\\.\\.\\.\\s*$",
 ]
 
-[tool.uv.sources]
-aiohttp-mcp = { path = "../aiohttp-mcp", editable = true }
