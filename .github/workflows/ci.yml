@@ -15,6 +15,7 @@ concurrency: ${{ github.ref }}
 
 env:
   MIN_PYTHON_VERSION: "3.11"
+  UV_NO_SOURCES: "true"
 
 jobs:
   pre-commit:
@@ -40,7 +41,7 @@ jobs:
           cache-dependency-glob: "pyproject.toml"
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --all-extras --no-sources
+        run: uv sync --all-extras
       - name: Run mypy
         run: uv run mypy .
 
@@ -58,7 +59,7 @@ jobs:
           cache-dependency-glob: "pyproject.toml"
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --all-extras --no-sources
+        run: uv sync --all-extras
       - name: Run ty
         run: uvx ty check
 
@@ -80,7 +81,7 @@ jobs:
           cache-dependency-glob: "pyproject.toml"
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --all-extras --no-sources
+        run: uv sync --all-extras
       - name: Run test
         run: uv run pytest --cov=aiohttp_mcp_client --cov-report=xml --junitxml=junit.xml
 
