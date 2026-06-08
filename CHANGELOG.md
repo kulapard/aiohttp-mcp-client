@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.3] - 2026-04-14
+
+### Fixed
+
+- Include `py.typed` marker in package distribution so downstream type checkers recognize inline types.
+
+## [0.0.2] - 2026-04-11
+
 ### Added
 
 - `MCPClient` — async MCP client with context manager and auto initialize/terminate lifecycle.
@@ -19,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pagination support via `cursor` parameter on all list methods. Returns `PaginatedResult` (a list subclass with `next_cursor` attribute).
 - GET SSE stream for server-initiated notifications in stateful mode. Background task auto-starts when a session ID is present, with auto-reconnect.
 - SSE resumability via `Last-Event-ID` header tracking for both POST and GET streams.
+- Client-side request cancellation: cancelling an `asyncio.Task` running `call_tool` (or any method) sends `notifications/cancelled` to the server per MCP spec.
+- PEP 561 `py.typed` marker for inline type checking support.
 
 ### Changed
 

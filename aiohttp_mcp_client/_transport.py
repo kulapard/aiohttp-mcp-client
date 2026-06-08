@@ -143,7 +143,11 @@ async def send_request(
     if params is not None:
         body["params"] = params
 
+    logger.debug("-> POST %s method=%s id=%s", url, method, request_id)
+
     async with http_session.post(url, json=body, headers=headers) as response:
+        logger.debug("<- %s %s (content-type: %s)", response.status, response.reason, response.content_type)
+
         if response.status >= 400:
             text = await response.text()
             raise MCPTransportError(f"HTTP {response.status}: {text}")
@@ -192,7 +196,11 @@ async def send_notification(
     if params is not None:
         body["params"] = params
 
+    logger.debug("-> POST %s notification=%s", url, method)
+
     async with http_session.post(url, json=body, headers=headers) as response:
+        logger.debug("<- %s %s", response.status, response.reason)
+
         if response.status >= 400:
             text = await response.text()
             raise MCPTransportError(f"HTTP {response.status}: {text}")
@@ -213,7 +221,11 @@ async def _consume_sse_stream(
     Raises:
         MCPTransportError: On HTTP errors that should not be retried.
     """
+    logger.debug("-> GET %s (SSE stream)", url)
+
     async with http_session.get(url, headers=headers) as response:
+        logger.debug("<- %s %s (SSE stream)", response.status, response.reason)
+
         if response.status == 409:
             raise MCPTransportError("GET SSE stream conflict (409) — another stream already open")
         if response.status >= 400:
@@ -290,8 +302,10 @@ async def terminate_session(
 ) -> None:
     """Send DELETE to terminate the MCP session. Best-effort — errors are logged, not raised."""
     headers = _build_headers(session_id, protocol_version)
+    logger.debug("-> DELETE %s session=%s", url, session_id)
     try:
         async with http_session.delete(url, headers=headers) as response:
+            logger.debug("<- %s %s", response.status, response.reason)
             if response.status == 405:
                 logger.debug("Server does not support session termination (405)")
             elif response.status >= 400:

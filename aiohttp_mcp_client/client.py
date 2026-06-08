@@ -371,7 +371,12 @@ class MCPClient:
         on_log: LogHandler | None = None,
         on_progress: ProgressHandler | None = None,
     ) -> dict[str, Any]:
-        """Send a JSON-RPC request and return the result dict."""
+        """Send a JSON-RPC request and return the result dict.
+
+        If the calling task is cancelled (``asyncio.CancelledError``), a
+        ``notifications/cancelled`` notification is sent to the server
+        before re-raising so the server can abort the operation.
+        """
         if not self._initialized:
             raise MCPError("Client is not initialized. Use 'async with MCPClient(...)' or call open() first.")
 
@@ -381,19 +386,42 @@ class MCPClient:
         on_notification = _build_notification_handler(log_handler, progress_handler)
 
         session = self._get_session()
-        result, new_session_id = await _transport.send_request(
-            http_session=session,
-            url=self._url,
-            method=method,
-            params=params,
-            request_id=self._next_id(),
-            session_id=self._session_id,
-            protocol_version=self._protocol_version,
-            on_notification=on_notification,
-        )
+        request_id = self._next_id()
+
+        try:
+            result, new_session_id = await _transport.send_request(
+                http_session=session,
+                url=self._url,
+                method=method,
+                params=params,
+                request_id=request_id,
+                session_id=self._session_id,
+                protocol_version=self._protocol_version,
+                on_notification=on_notification,
+            )
+        except asyncio.CancelledError:
+            # Notify the server that we no longer need this response
+            await self._send_cancel(request_id)
+            raise
+
         if new_session_id:
             self._session_id = new_session_id
         return result
+
+    async def _send_cancel(self, request_id: int) -> None:
+        """Send notifications/cancelled for a request. Best-effort — errors are logged."""
+        try:
+            session = self._get_session()
+            await _transport.send_notification(
+                http_session=session,
+                url=self._url,
+                method="notifications/cancelled",
+                params={"requestId": request_id, "reason": "client cancelled"},
+                session_id=self._session_id,
+                protocol_version=self._protocol_version,
+            )
+        except Exception:
+            logger.debug("Failed to send cancellation for request %s", request_id, exc_info=True)
 
 
 # ------------------------------------------------------------------

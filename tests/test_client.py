@@ -44,7 +44,7 @@ def _create_test_app() -> web.Application:
         """A simple prompt."""
         return f"Tell me about {topic}"
 
-    return build_mcp_app(mcp, path="/mcp")  # type: ignore[no-any-return]
+    return build_mcp_app(mcp, path="/mcp")
 
 
 @pytest.fixture
